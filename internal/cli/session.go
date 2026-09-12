@@ -1,0 +1,224 @@
+package cli
+
+import (
+	"strconv"
+
+	"github.com/amansk/parkmobile-pp-cli/internal/client"
+	"github.com/amansk/parkmobile-pp-cli/internal/exitcode"
+	"github.com/spf13/cobra"
+)
+
+const (
+	startConfirmPhrase  = "START PARKMOBILE SESSION"
+	extendConfirmPhrase = "EXTEND PARKMOBILE SESSION"
+	stopConfirmPhrase   = "STOP PARKMOBILE SESSION"
+)
+
+func newSessionCmd(opt *Options) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "session",
+		Short: "Start, extend, or stop zone parking (mutations hard-gated)",
+	}
+	cmd.AddCommand(newSessionStartCmd(opt))
+	cmd.AddCommand(newSessionExtendCmd(opt))
+	cmd.AddCommand(newSessionStopCmd(opt))
+	return cmd
+}
+
+func writeMutationResult(cmd *cobra.Command, opt *Options, verb string, out map[string]any) error {
+	payload := map[string]any{"result": out}
+	if dry, _ := out["dry_run"].(bool); dry {
+		payload["dry_run"] = true
+		payload["unverified"] = true
+	} else {
+		payload[verb] = true
+		payload["unverified"] = true
+	}
+	return writeOut(cmd, opt, payload)
+}
+
+func newSessionStartCmd(opt *Options) *cobra.Command {
+	var zoneCode string
+	var duration, vehicleID, billingMethodID, timeBlockID int
+	var spaceNumber, orderToken string
+	var enableLive, ownerApproved bool
+	var confirm string
+
+	cmd := &cobra.Command{
+		Use:   "start",
+		Short: "Start zone parking (hard-gated) or use 'start preview' for quote only",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if orderToken == "" {
+				return exitcode.Usagef("--order-token is required (capture from browser checkout HAR; zone/duration alone are not in ParkingActivateRequest metadata)")
+			}
+			if !enableLive || !ownerApproved || confirm != startConfirmPhrase {
+				return exitcode.Usagef("refusing live parking: require --enable-live-parking --owner-approved --confirm %q", startConfirmPhrase)
+			}
+			c, err := opt.newClient()
+			if err != nil {
+				return err
+			}
+			if c.Session == nil || c.Session.CookieHeader() == "" {
+				return exitcode.Authf("authenticated session required; run auth login")
+			}
+			out, err := c.StartSession(client.StartSessionInput{
+				OrderToken:      orderToken,
+				BillingMethodID: billingMethodID,
+			})
+			if err != nil {
+				return err
+			}
+			return writeMutationResult(cmd, opt, "started", out)
+		},
+	}
+	addStartFlags(cmd, &zoneCode, &duration, &vehicleID, &billingMethodID, &spaceNumber)
+	cmd.Flags().StringVar(&orderToken, "order-token", "", "Order token from checkout/preview (required for live start)")
+	cmd.Flags().IntVar(&timeBlockID, "timeblock-id", 0, "Optional time block id for price preview")
+	cmd.Flags().BoolVar(&enableLive, "enable-live-parking", false, "Explicit opt-in to charge a payment method")
+	cmd.Flags().BoolVar(&ownerApproved, "owner-approved", false, "Explicit owner approval for this session")
+	cmd.Flags().StringVar(&confirm, "confirm", "", "Must be exactly: "+startConfirmPhrase)
+	cmd.AddCommand(newSessionStartPreviewCmd(opt))
+	return cmd
+}
+
+func newSessionStartPreviewCmd(opt *Options) *cobra.Command {
+	var zoneCode string
+	var duration, vehicleID, billingMethodID, timeBlockID int
+	var spaceNumber, orderToken string
+	cmd := &cobra.Command{
+		Use:   "preview",
+		Short: "Preview a parking quote without charging",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if zoneCode == "" || duration <= 0 {
+				return exitcode.Usagef("--zone and --duration-minutes are required")
+			}
+			c, err := opt.newClient()
+			if err != nil {
+				return err
+			}
+			if c.Session == nil || c.Session.CookieHeader() == "" {
+				return exitcode.Authf("authenticated session required; run auth login")
+			}
+			preview, err := c.StartPreview(client.StartPreviewInput{
+				ZoneCode:        zoneCode,
+				DurationMinutes: duration,
+				VehicleID:       vehicleID,
+				BillingMethodID: billingMethodID,
+				SpaceNumber:     spaceNumber,
+				OrderToken:      orderToken,
+				TimeBlockID:     timeBlockID,
+			})
+			if err != nil {
+				return err
+			}
+			return writeOut(cmd, opt, preview)
+		},
+	}
+	addStartFlags(cmd, &zoneCode, &duration, &vehicleID, &billingMethodID, &spaceNumber)
+	cmd.Flags().StringVar(&orderToken, "order-token", "", "Order token from browser checkout (required for live price quote)")
+	cmd.Flags().IntVar(&timeBlockID, "timeblock-id", 0, "Optional time block id")
+	return cmd
+}
+
+func newSessionExtendCmd(opt *Options) *cobra.Command {
+	var sessionID int
+	var duration, billingMethodID int
+	var orderToken string
+	var enableLive, ownerApproved bool
+	var confirm string
+	cmd := &cobra.Command{
+		Use:   "extend",
+		Short: "Extend an active parking session (hard-gated)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if sessionID <= 0 {
+				return exitcode.Usagef("--session-id is required")
+			}
+			if orderToken == "" {
+				return exitcode.Usagef("--order-token is required (ParkingExtensionActivateRequest metadata uses order_token, not session id)")
+			}
+			if !enableLive || !ownerApproved || confirm != extendConfirmPhrase {
+				return exitcode.Usagef("refusing live extend: require --enable-live-parking --owner-approved --confirm %q", extendConfirmPhrase)
+			}
+			c, err := opt.newClient()
+			if err != nil {
+				return err
+			}
+			if c.Session == nil || c.Session.CookieHeader() == "" {
+				return exitcode.Authf("authenticated session required; run auth login")
+			}
+			sess, err := c.GetSession(strconv.Itoa(sessionID))
+			if err != nil {
+				return err
+			}
+			if !sess.CanExtend {
+				return exitcode.Usagef("session %d cannot be extended (can_extend=false)", sessionID)
+			}
+			out, err := c.ExtendSession(client.ExtendSessionInput{
+				OrderToken:      orderToken,
+				BillingMethodID: billingMethodID,
+			})
+			if err != nil {
+				return err
+			}
+			return writeMutationResult(cmd, opt, "extended", out)
+		},
+	}
+	cmd.Flags().IntVar(&sessionID, "session-id", 0, "Active parking session id (for can_extend guard only)")
+	cmd.Flags().IntVar(&duration, "duration-minutes", 0, "Additional minutes (for future HAR-verified body; not sent today)")
+	cmd.Flags().StringVar(&orderToken, "order-token", "", "Extension order token from browser checkout")
+	cmd.Flags().IntVar(&billingMethodID, "billing-method-id", 0, "Saved billing method id")
+	cmd.Flags().BoolVar(&enableLive, "enable-live-parking", false, "Explicit opt-in to charge a payment method")
+	cmd.Flags().BoolVar(&ownerApproved, "owner-approved", false, "Explicit owner approval")
+	cmd.Flags().StringVar(&confirm, "confirm", "", "Must be exactly: "+extendConfirmPhrase)
+	return cmd
+}
+
+func newSessionStopCmd(opt *Options) *cobra.Command {
+	var sessionID int
+	var enableLive, ownerApproved bool
+	var confirm string
+	cmd := &cobra.Command{
+		Use:   "stop",
+		Short: "Stop an active parking session early when zone allows (hard-gated)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if sessionID <= 0 {
+				return exitcode.Usagef("--session-id is required")
+			}
+			if !enableLive || !ownerApproved || confirm != stopConfirmPhrase {
+				return exitcode.Usagef("refusing live stop: require --enable-live-parking --owner-approved --confirm %q", stopConfirmPhrase)
+			}
+			c, err := opt.newClient()
+			if err != nil {
+				return err
+			}
+			if c.Session == nil || c.Session.CookieHeader() == "" {
+				return exitcode.Authf("authenticated session required; run auth login")
+			}
+			sess, err := c.GetSession(strconv.Itoa(sessionID))
+			if err != nil {
+				return err
+			}
+			if !sess.CanStop {
+				return exitcode.Usagef("session %d cannot be stopped early (can_stop=false)", sessionID)
+			}
+			out, err := c.StopSession(client.StopSessionInput{SessionID: sessionID})
+			if err != nil {
+				return err
+			}
+			return writeMutationResult(cmd, opt, "stopped", out)
+		},
+	}
+	cmd.Flags().IntVar(&sessionID, "session-id", 0, "Active parking session id")
+	cmd.Flags().BoolVar(&enableLive, "enable-live-parking", false, "Explicit opt-in to mutate remote session")
+	cmd.Flags().BoolVar(&ownerApproved, "owner-approved", false, "Explicit owner approval")
+	cmd.Flags().StringVar(&confirm, "confirm", "", "Must be exactly: "+stopConfirmPhrase)
+	return cmd
+}
+
+func addStartFlags(cmd *cobra.Command, zone *string, duration, vehicleID, billingMethodID *int, space *string) {
+	cmd.Flags().StringVar(zone, "zone", "", "Zone/signage code (for preview context; not sent in activate body)")
+	cmd.Flags().IntVar(duration, "duration-minutes", 0, "Parking duration in minutes (for preview quote)")
+	cmd.Flags().IntVar(vehicleID, "vehicle-id", 0, "Saved vehicle id (for future HAR-verified checkout; not sent today)")
+	cmd.Flags().IntVar(billingMethodID, "billing-method-id", 0, "Saved billing method id")
+	cmd.Flags().StringVar(space, "space-number", "", "Space number when zone requires it (for future HAR-verified checkout)")
+}
