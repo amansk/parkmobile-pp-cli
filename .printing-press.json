@@ -1,0 +1,44 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-09-12T00:00:00Z",
+  "api_name": "parkmobile",
+  "display_name": "ParkMobile",
+  "cli_name": "parkmobile-pp-cli",
+  "category": "commerce",
+  "creator": {
+    "handle": "amansk",
+    "name": "Amandeep Khurana"
+  },
+  "owner": "amansk",
+  "printer": "amansk",
+  "printer_name": "Amandeep Khurana",
+  "run_id": "20260912-parkmobile-hand",
+  "api_version": "0.1.0",
+  "auth_type": "cookie",
+  "auth_env_vars": [
+    "PARKMOBILE_COOKIES"
+  ],
+  "auth_description": "ParkMobile US consumer Phonixx API at parkmobile.us/ParkmobileApi uses browser session cookies and PMAuthenticationToken. Sign in at parkmobile.io (Zone Parking), then auth login --chrome or --cookies-file. Not developer.parkmobile.io partner API.",
+  "description": "Agent-native CLI for ParkMobile US consumer zone parking: zones, sessions, and hard-gated start/extend/stop.",
+  "novel_features": [
+    {
+      "name": "Hard-gated live parking",
+      "command": "session start",
+      "description": "Charges only with --enable-live-parking --owner-approved --confirm \"START PARKMOBILE SESSION\"; session start preview never posts checkout."
+    },
+    {
+      "name": "Hard-gated extend/stop",
+      "command": "session extend / session stop",
+      "description": "Extend and stop require matching confirm phrases and can_extend/can_stop checks from session metadata."
+    },
+    {
+      "name": "Consumer session auth",
+      "command": "auth login",
+      "description": "Chrome or Playwright storage-state cookie import; secrets stored mode 0600, never printed."
+    }
+  ],
+  "spec_path": "PLAN.md",
+  "spec_format": "markdown",
+  "spec_source": "reverse-engineered",
+  "spec_checksum": "sha256:pending"
+}
