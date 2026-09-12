@@ -142,23 +142,25 @@ type PriceQuote struct {
 	OrderToken       string  `json:"order_token,omitempty"`
 }
 
-// GetPriceQuote requests a price quote for zone parking.
-// Query param shape is unverified — derived from ParkingPriceInfoRequest CSV metadata.
-func (c *Client) GetPriceQuote(zoneCode string, durationMinutes int, orderToken string) (PriceQuote, error) {
-	q := url.Values{}
-	q.Set("zoneCode", zoneCode)
-	if durationMinutes > 0 {
-		q.Set("durationInMinutes", fmt.Sprintf("%d", durationMinutes))
+// GetPriceQuote requests a price quote using order_token (ServiceStack metadata fields).
+func (c *Client) GetPriceQuote(orderToken string, durationMinutes, timeBlockID int) (PriceQuote, error) {
+	if orderToken == "" {
+		return PriceQuote{}, fmt.Errorf("order_token required for GET /v3/parking/price per ServiceStack metadata")
 	}
-	if orderToken != "" {
-		q.Set("orderToken", orderToken)
+	q := url.Values{}
+	q.Set("order_token", orderToken)
+	if durationMinutes > 0 {
+		q.Set("duration_in_minutes", fmt.Sprintf("%d", durationMinutes))
+	}
+	if timeBlockID > 0 {
+		q.Set("time_block_id", fmt.Sprintf("%d", timeBlockID))
 	}
 	path := PathPriceV3 + "?" + q.Encode()
 	wire, err := c.doJSONMap(http.MethodGet, path, nil)
 	if err != nil {
 		return PriceQuote{}, err
 	}
-	out := PriceQuote{ZoneCode: zoneCode, DurationMinutes: durationMinutes}
+	out := PriceQuote{DurationMinutes: durationMinutes, OrderToken: orderToken}
 	if p, ok := wire["price"].(map[string]any); ok {
 		out.TotalPrice = floatField(p, "totalPrice", "TotalPrice")
 		out.ParkingPrice = floatField(p, "parkingPrice", "ParkingPrice")
@@ -166,6 +168,6 @@ func (c *Client) GetPriceQuote(zoneCode string, durationMinutes int, orderToken 
 	}
 	out.IsParkingAllowed = boolField(wire, "isParkingAllowed", "IsParkingAllowed")
 	out.NotAllowedReason = strField(wire, "parkingNotAllowedReason", "ParkingNotAllowedReason")
-	out.OrderToken = strField(wire, "orderToken", "OrderToken")
+	out.OrderToken = strField(wire, "orderToken", "OrderToken", "order_token")
 	return out, nil
 }

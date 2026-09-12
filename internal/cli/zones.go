@@ -35,16 +35,9 @@ func newZonesGetCmd(opt *Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out := map[string]any{
-				"zone": zone,
-			}
+			out := map[string]any{"zone": zone}
 			if duration > 0 {
-				quote, qerr := c.GetPriceQuote(zoneCode, duration, "")
-				if qerr == nil {
-					out["price_quote"] = quote
-				} else {
-					out["price_quote_error"] = qerr.Error()
-				}
+				out["price_quote_note"] = "GET /v3/parking/price requires order_token per metadata; use session start preview --order-token after browser checkout HAR"
 			}
 			return writeOut(cmd, opt, out)
 		},

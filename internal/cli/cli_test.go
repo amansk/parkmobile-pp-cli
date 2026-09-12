@@ -29,7 +29,11 @@ func mockHTTP(t *testing.T) *client.Client {
 		case "/v4/parking/zone/1234":
 			_, _ = w.Write([]byte(`{"signageCode":"1234","locationName":"Test Zone","parkInfo":{"isParkingAllowed":true,"maxParkingTime":{"totalMinutes":120},"timeBlocks":[{"name":"2 Hours","timeBlockUnit":"Minutes","minimumValue":30,"maximumValue":120}]}}`))
 		case "/v3/parking/price":
-			_, _ = w.Write([]byte(`{"price":{"totalPrice":5.25,"parkingPrice":4.00,"serviceFee":1.25},"isParkingAllowed":true}`))
+			if r.URL.Query().Get("order_token") == "tok123" {
+				_, _ = w.Write([]byte(`{"price":{"totalPrice":5.25,"parkingPrice":4.00,"serviceFee":1.25},"isParkingAllowed":true}`))
+				return
+			}
+			w.WriteHeader(http.StatusBadRequest)
 		case "/v2/parking/history":
 			_, _ = w.Write([]byte(`{"parkingActions":[{"id":99,"canStop":true,"canExtend":true,"zone":{"signageCode":"1234"},"car":{"vrn":"ABC123","state":"CA"},"priceDetail":{"totalPrice":5.25}}]}`))
 		case "/v3/parking/active":
@@ -101,13 +105,36 @@ func TestDoctorJSON(t *testing.T) {
 	}
 }
 
-func TestSessionStartPreviewJSON(t *testing.T) {
+func TestSessionStartPreviewWithoutOrderToken(t *testing.T) {
 	home := t.TempDir()
 	sess := &auth.Session{Cookies: map[string]string{"PMAuthenticationToken": "x"}}
 	if err := auth.SaveSession(home, sess); err != nil {
 		t.Fatal(err)
 	}
 	code, out, errOut := runCLIWithHome(t, home, "--json", "session", "start", "preview", "--zone", "1234", "--duration-minutes", "60")
+	if code != 0 {
+		t.Fatalf("code=%d err=%q out=%q", code, errOut, out)
+	}
+	var preview struct {
+		DryRun           bool   `json:"dry_run"`
+		NotAllowedReason string `json:"not_allowed_reason"`
+	}
+	if err := json.Unmarshal([]byte(out), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if !preview.DryRun || preview.NotAllowedReason == "" {
+		t.Fatalf("%+v", preview)
+	}
+}
+
+func TestSessionStartPreviewWithOrderToken(t *testing.T) {
+	home := t.TempDir()
+	sess := &auth.Session{Cookies: map[string]string{"PMAuthenticationToken": "x"}}
+	if err := auth.SaveSession(home, sess); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errOut := runCLIWithHome(t, home, "--json", "session", "start", "preview",
+		"--zone", "1234", "--duration-minutes", "60", "--order-token", "tok123")
 	if code != 0 {
 		t.Fatalf("code=%d err=%q out=%q", code, errOut, out)
 	}
@@ -129,7 +156,7 @@ func TestSessionStartRefusesWithoutGates(t *testing.T) {
 	if err := auth.SaveSession(home, sess); err != nil {
 		t.Fatal(err)
 	}
-	code, _, _ := runCLIWithHome(t, home, "session", "start", "--zone", "1234", "--duration-minutes", "60")
+	code, _, _ := runCLIWithHome(t, home, "session", "start", "--order-token", "tok123")
 	if code != 2 {
 		t.Fatalf("code=%d want 2", code)
 	}
@@ -142,7 +169,7 @@ func TestSessionStartDryRunWithGates(t *testing.T) {
 		t.Fatal(err)
 	}
 	code, out, errOut := runCLIWithHome(t, home, "--json", "--dry-run", "session", "start",
-		"--zone", "1234", "--duration-minutes", "60",
+		"--order-token", "tok123", "--billing-method-id", "10",
 		"--enable-live-parking", "--owner-approved", "--confirm", "START PARKMOBILE SESSION")
 	if code != 0 {
 		t.Fatalf("code=%d err=%q out=%q", code, errOut, out)
@@ -151,8 +178,25 @@ func TestSessionStartDryRunWithGates(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload["started"] != true {
+	if payload["dry_run"] != true {
 		t.Fatalf("%v", payload)
+	}
+	if payload["started"] == true {
+		t.Fatalf("dry-run must not report started=true: %v", payload)
+	}
+}
+
+func TestSessionStartBlocksLiveWithoutAcknowledge(t *testing.T) {
+	home := t.TempDir()
+	sess := &auth.Session{Cookies: map[string]string{"PMAuthenticationToken": "x"}}
+	if err := auth.SaveSession(home, sess); err != nil {
+		t.Fatal(err)
+	}
+	code, _, _ := runCLIWithHome(t, home, "session", "start",
+		"--order-token", "tok123", "--billing-method-id", "10",
+		"--enable-live-parking", "--owner-approved", "--confirm", "START PARKMOBILE SESSION")
+	if code != 2 {
+		t.Fatalf("code=%d want 2", code)
 	}
 }
 

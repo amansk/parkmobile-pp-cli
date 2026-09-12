@@ -143,15 +143,23 @@ func (s *Session) Status() map[string]any {
 		return map[string]any{"authenticated": false}
 	}
 	names := cookieNames(s)
-	hasToken := s.PMAuthenticationToken() != "" || s.AuthBearer() != ""
-	return map[string]any{
-		"authenticated": s.CookieHeader() != "",
-		"has_pm_token":  hasToken,
+	hasCookies := s.CookieHeader() != ""
+	hasPMToken := s.PMAuthenticationToken() != ""
+	hasBearer := s.AuthBearer() != ""
+	out := map[string]any{
+		"authenticated": hasCookies,
+		"has_cookies":   hasCookies,
+		"has_pm_token":  hasPMToken,
+		"has_bearer":    hasBearer,
 		"source":        s.Source,
 		"updated_at":    s.UpdatedAt,
 		"cookie_names":  names,
 		"cookie_count":  len(names),
 	}
+	if hasCookies && !hasPMToken && !hasBearer {
+		out["auth_warning"] = "cookies present but no PMAuthenticationToken/Bearer detected; app.parkmobile.io login alone may not work — complete Zone Parking at dlweb.parkmobile.us/Phonixx/ and re-import"
+	}
+	return out
 }
 
 func cookieNames(s *Session) []string {

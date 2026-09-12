@@ -35,7 +35,12 @@ func newDoctorCmd(opt *Options) *cobra.Command {
 				checks = append(checks, map[string]any{"name": "session", "ok": false, "detail": "not authenticated; run auth login"})
 				report["ok"] = false
 			} else {
-				checks = append(checks, map[string]any{"name": "session", "ok": true, "detail": "cookies present"})
+				detail := "cookies present"
+				if sess.PMAuthenticationToken() == "" && sess.AuthBearer() == "" {
+					detail = "cookies present but no PMAuthenticationToken/Bearer — Phonixx API auth likely to fail until Zone Parking (dlweb.parkmobile.us) session is imported"
+					report["ok"] = false
+				}
+				checks = append(checks, map[string]any{"name": "session", "ok": sess.PMAuthenticationToken() != "" || sess.AuthBearer() != "", "detail": detail})
 			}
 			if live {
 				c, err := opt.newClient()
@@ -46,16 +51,18 @@ func newDoctorCmd(opt *Options) *cobra.Command {
 					checks = append(checks, map[string]any{"name": "live_ping", "ok": false, "detail": err.Error()})
 					report["ok"] = false
 				} else {
-					checks = append(checks, map[string]any{"name": "live_ping", "ok": true, "detail": "GET /locations reachable (no auth)"})
+					checks = append(checks, map[string]any{"name": "live_ping", "ok": true, "detail": "GET /locations reachable without auth (does not prove account session)"})
 				}
 				if sess != nil && sess.CookieHeader() != "" {
 					if err := c.ProbeSessionAuth(); err != nil {
 						checks = append(checks, map[string]any{"name": "live_session", "ok": false, "detail": err.Error()})
 						report["ok"] = false
 					} else {
-						checks = append(checks, map[string]any{"name": "live_session", "ok": true, "detail": "GET /account/identify2 succeeded"})
+						checks = append(checks, map[string]any{"name": "live_session", "ok": true, "detail": "GET /account/identify2 succeeded with imported session"})
 					}
 				}
+			} else {
+				checks = append(checks, map[string]any{"name": "live_probes", "ok": true, "detail": "skipped; pass --live to probe GET /locations and GET /account/identify2"})
 			}
 			report["checks"] = checks
 			return writeOut(cmd, opt, report)

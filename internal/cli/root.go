@@ -22,9 +22,10 @@ type Options struct {
 	NoColor bool
 	NoInput bool
 	Yes     bool
-	DryRun  bool
-	Home    string
-	HTTP    *client.Client
+	DryRun                     bool
+	AcknowledgeUnverifiedBody  bool
+	Home                       string
+	HTTP                       *client.Client
 }
 
 func (o Options) Mode() output.Mode {
@@ -38,6 +39,7 @@ func (o *Options) ResolveHome() (string, error) {
 func (o *Options) newClient() (*client.Client, error) {
 	if o.HTTP != nil {
 		o.HTTP.DryRun = o.DryRun
+		o.HTTP.AllowUnverifiedMutations = o.AcknowledgeUnverifiedBody
 		return o.HTTP, nil
 	}
 	home, err := o.ResolveHome()
@@ -50,6 +52,7 @@ func (o *Options) newClient() (*client.Client, error) {
 	}
 	c := client.New(sess)
 	c.DryRun = o.DryRun
+	c.AllowUnverifiedMutations = o.AcknowledgeUnverifiedBody
 	return c, nil
 }
 
@@ -79,6 +82,7 @@ func newRoot(opt *Options) *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&opt.NoInput, "no-input", false, "Never prompt interactively")
 	cmd.PersistentFlags().BoolVar(&opt.Yes, "yes", false, "Auto-confirm when a command allows it")
 	cmd.PersistentFlags().BoolVar(&opt.DryRun, "dry-run", false, "Validate requests without mutating remote state")
+	cmd.PersistentFlags().BoolVar(&opt.AcknowledgeUnverifiedBody, "acknowledge-unverified-body", false, "Allow live POST/PUT/DELETE with unverified mutation bodies (after HAR review)")
 	cmd.PersistentFlags().StringVar(&opt.Home, "home", "", "Override config dir ($PARKMOBILE_PP_HOME or ~/.config/parkmobile-pp-cli)")
 
 	cmd.AddCommand(newAuthCmd(opt))

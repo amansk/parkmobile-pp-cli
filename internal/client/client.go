@@ -20,6 +20,8 @@ type Client struct {
 	Session   *auth.Session
 	UserAgent string
 	DryRun    bool
+	// AllowUnverifiedMutations permits live POST/PUT/DELETE when mutation bodies are still unverified.
+	AllowUnverifiedMutations bool
 	// SourceAppKey is sent when set (mobile app header; unverified without live session).
 	SourceAppKey string
 }
@@ -49,9 +51,6 @@ func (c *Client) applyAuth(req *http.Request) {
 	}
 	if bearer := c.Session.AuthBearer(); bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+bearer)
-	} else if pm := c.Session.PMAuthenticationToken(); pm != "" {
-		// unverified: mobile clients may also send Bearer; try PMA token as Bearer fallback.
-		req.Header.Set("Authorization", "Bearer "+pm)
 	}
 	if c.SourceAppKey != "" {
 		req.Header.Set("SourceAppKey", c.SourceAppKey)
@@ -106,7 +105,7 @@ func mapHTTPStatus(status int, raw []byte) error {
 	if status == http.StatusTooManyRequests {
 		return exitcode.Transientf("rate limited (HTTP 429)")
 	}
-	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+	if status == http.StatusUnauthorized || status == http.StatusForbidden || status == http.StatusGone {
 		return exitcode.Authf("HTTP %d: %s", status, truncate(string(raw), 200))
 	}
 	if status == http.StatusNotFound {

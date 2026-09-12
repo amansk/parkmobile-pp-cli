@@ -54,22 +54,25 @@ parkmobile-pp-cli sessions get 99 --json
 Preview never charges:
 
 ```bash
-parkmobile-pp-cli session start preview --zone 1234 --duration-minutes 60 --json
+parkmobile-pp-cli session start preview --zone 1234 --duration-minutes 60 \
+  --order-token "<from-har>" --json
 ```
 
-Live start requires **all three** gates (exact confirm string). Mutation request bodies are scaffolded from public Phonixx metadata and marked **unverified** until confirmed with a live HAR — use `--dry-run` first.
+Without `--order-token`, preview returns an unverified notice (metadata requires `order_token` for `/v3/parking/price`).
+
+Live start requires **all three** gates plus **`--order-token`** (from browser checkout HAR). ServiceStack metadata shows POST `/v3/parking/active` uses `order_token` + `credit_card`, **not** zone/duration fields. Live HTTP is blocked unless you also pass **`--acknowledge-unverified-body`** — prefer `--dry-run` first.
 
 ```bash
-parkmobile-pp-cli session start --zone 1234 --duration-minutes 60 \
-  --vehicle-id 1 --billing-method-id 10 \
+parkmobile-pp-cli session start --order-token "<from-har>" \
+  --billing-method-id 10 \
   --enable-live-parking --owner-approved \
-  --confirm "START PARKMOBILE SESSION" --json
+  --confirm "START PARKMOBILE SESSION" --dry-run --json
 ```
 
-Inspect payload without posting:
+Inspect payload without posting (recommended):
 
 ```bash
-parkmobile-pp-cli session start --zone 1234 --duration-minutes 60 \
+parkmobile-pp-cli session start --order-token "<from-har>" \
   --enable-live-parking --owner-approved \
   --confirm "START PARKMOBILE SESSION" --dry-run --json
 ```
@@ -79,9 +82,9 @@ parkmobile-pp-cli session start --zone 1234 --duration-minutes 60 \
 Extend (only when `can_extend` is true on the session):
 
 ```bash
-parkmobile-pp-cli session extend --session-id 99 --duration-minutes 30 \
+parkmobile-pp-cli session extend --session-id 99 --order-token "<from-har>" \
   --enable-live-parking --owner-approved \
-  --confirm "EXTEND PARKMOBILE SESSION" --json
+  --confirm "EXTEND PARKMOBILE SESSION" --dry-run --json
 ```
 
 Stop early (only when `can_stop` is true):
@@ -99,6 +102,7 @@ parkmobile-pp-cli session stop --session-id 99 \
 | `--json` | Machine-readable JSON output |
 | `--agent` | `--json --no-color --no-input` (does **not** imply `--yes`) |
 | `--dry-run` | Skip mutating POST/PUT/DELETE where supported |
+| `--acknowledge-unverified-body` | Allow live mutations with unverified metadata scaffold (after HAR review) |
 | `--home` | Override config dir (`$PARKMOBILE_PP_HOME` or `~/.config/parkmobile-pp-cli`) |
 
 ## Exit codes
