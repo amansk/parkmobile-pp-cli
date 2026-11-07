@@ -8,30 +8,30 @@ import (
 
 // ZoneInfo is a safe subset of zone metadata for CLI output.
 type ZoneInfo struct {
-	ZoneCode         string  `json:"zone_code"`
-	InternalZoneCode string  `json:"internal_zone_code,omitempty"`
-	SignageCode      string  `json:"signage_code,omitempty"`
-	LocationName     string  `json:"location_name,omitempty"`
-	Street           string  `json:"street,omitempty"`
-	City             string  `json:"city,omitempty"`
-	State            string  `json:"state,omitempty"`
-	Latitude         float64 `json:"latitude,omitempty"`
-	Longitude        float64 `json:"longitude,omitempty"`
-	IsStoppable      *bool   `json:"is_stoppable,omitempty"`
-	MaxDurationMins  int     `json:"max_duration_minutes,omitempty"`
-	IsParkingAllowed bool    `json:"is_parking_allowed,omitempty"`
-	NotAllowedReason string  `json:"parking_not_allowed_reason,omitempty"`
-	TimeBlocks       []TimeBlock `json:"time_blocks,omitempty"`
+	ZoneCode         string         `json:"zone_code"`
+	InternalZoneCode string         `json:"internal_zone_code,omitempty"`
+	SignageCode      string         `json:"signage_code,omitempty"`
+	LocationName     string         `json:"location_name,omitempty"`
+	Street           string         `json:"street,omitempty"`
+	City             string         `json:"city,omitempty"`
+	State            string         `json:"state,omitempty"`
+	Latitude         float64        `json:"latitude,omitempty"`
+	Longitude        float64        `json:"longitude,omitempty"`
+	IsStoppable      *bool          `json:"is_stoppable,omitempty"`
+	MaxDurationMins  int            `json:"max_duration_minutes,omitempty"`
+	IsParkingAllowed bool           `json:"is_parking_allowed,omitempty"`
+	NotAllowedReason string         `json:"parking_not_allowed_reason,omitempty"`
+	TimeBlocks       []TimeBlock    `json:"time_blocks,omitempty"`
 	Raw              map[string]any `json:"-"`
 }
 
 type TimeBlock struct {
-	Name         string  `json:"name"`
-	Unit         string  `json:"unit"`
-	MinQuantity  int     `json:"min_quantity"`
-	MaxQuantity  int     `json:"max_quantity"`
-	TotalPrice   float64 `json:"total_price,omitempty"`
-	TimeBlockID  int     `json:"timeblock_id,omitempty"`
+	Name        string  `json:"name"`
+	Unit        string  `json:"unit"`
+	MinQuantity int     `json:"min_quantity"`
+	MaxQuantity int     `json:"max_quantity"`
+	TotalPrice  float64 `json:"total_price,omitempty"`
+	TimeBlockID int     `json:"timeblock_id,omitempty"`
 }
 
 // GetZone fetches zone info by signage/internal zone code.
