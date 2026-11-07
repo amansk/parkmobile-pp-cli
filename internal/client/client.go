@@ -28,9 +28,9 @@ type Client struct {
 
 func New(session *auth.Session) *Client {
 	return &Client{
-		BaseURL: DefaultBaseURL,
-		HTTP:    &http.Client{Timeout: 30 * time.Second},
-		Session: session,
+		BaseURL:   DefaultBaseURL,
+		HTTP:      &http.Client{Timeout: 30 * time.Second},
+		Session:   session,
 		UserAgent: "parkmobile-pp-cli/0.1.0 (+https://github.com/amansk/parkmobile-pp-cli)",
 	}
 }
@@ -193,7 +193,7 @@ func (c *Client) DryRunRequest(method, path string, body any) map[string]any {
 func APIErrorDetail(raw []byte) string {
 	var env struct {
 		ResponseStatus struct {
-			Message string `json:"message"`
+			Message   string `json:"message"`
 			ErrorCode string `json:"errorCode"`
 		} `json:"responseStatus"`
 	}

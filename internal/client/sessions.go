@@ -10,18 +10,18 @@ import (
 
 // ParkingSession is an active or historical parking session.
 type ParkingSession struct {
-	ID           int    `json:"id"`
-	ZoneCode     string `json:"zone_code"`
-	SpaceNumber  string `json:"space_number,omitempty"`
-	StartLocal   string `json:"start_local,omitempty"`
-	StopLocal    string `json:"stop_local,omitempty"`
+	ID           int     `json:"id"`
+	ZoneCode     string  `json:"zone_code"`
+	SpaceNumber  string  `json:"space_number,omitempty"`
+	StartLocal   string  `json:"start_local,omitempty"`
+	StopLocal    string  `json:"stop_local,omitempty"`
 	TotalPrice   float64 `json:"total_price,omitempty"`
-	CanStop      bool   `json:"can_stop"`
-	CanExtend    bool   `json:"can_extend"`
-	VehiclePlate string `json:"vehicle_plate,omitempty"`
-	VehicleState string `json:"vehicle_state,omitempty"`
-	OrderID      int    `json:"order_id,omitempty"`
-	Status       string `json:"status,omitempty"`
+	CanStop      bool    `json:"can_stop"`
+	CanExtend    bool    `json:"can_extend"`
+	VehiclePlate string  `json:"vehicle_plate,omitempty"`
+	VehicleState string  `json:"vehicle_state,omitempty"`
+	OrderID      int     `json:"order_id,omitempty"`
+	Status       string  `json:"status,omitempty"`
 }
 
 // ListSessions returns parking history (active + recent).

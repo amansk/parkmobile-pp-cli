@@ -16,16 +16,16 @@ var version = "0.1.0"
 
 // Options are global CLI flags.
 type Options struct {
-	JSON    bool
-	Agent   bool
-	Quiet   bool
-	NoColor bool
-	NoInput bool
-	Yes     bool
-	DryRun                     bool
-	AcknowledgeUnverifiedBody  bool
-	Home                       string
-	HTTP                       *client.Client
+	JSON                      bool
+	Agent                     bool
+	Quiet                     bool
+	NoColor                   bool
+	NoInput                   bool
+	Yes                       bool
+	DryRun                    bool
+	AcknowledgeUnverifiedBody bool
+	Home                      string
+	HTTP                      *client.Client
 }
 
 func (o Options) Mode() output.Mode {
